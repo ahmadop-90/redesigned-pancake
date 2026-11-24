@@ -120,6 +120,12 @@ jobs:
               Write-Warning "File 'gg in.mcr' not found in $extractPath!"
           }
 
+          Write-Host "Linking .mcr files to Macro Recorder..."
+          $mcrExe = "C:\Program Files (x86)\Macro Recorder\MacroRecorder.exe"
+          if (-not (Test-Path $mcrExe)) { $mcrExe = "C:\Program Files\Macro Recorder\MacroRecorder.exe" }
+          cmd.exe /c "assoc .mcr=JitbitMacroFile"
+          cmd.exe /c "ftype JitbitMacroFile=`"$mcrExe`" `"%1`""
+
           Write-Host "Downloading and Installing AnyDesk..."
           $anydeskUrl = "https://download.anydesk.com/AnyDesk.exe"
           $anydeskPath = "$env:TEMP\AnyDesk.exe"
