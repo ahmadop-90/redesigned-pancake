@@ -190,6 +190,33 @@ jobs:
           $anydeskId = cmd.exe /c "C:\AnyDesk\AnyDesk.exe --get-id"
           echo "ANYDESK_ID=$anydeskId" >> $env:GITHUB_ENV
 
+      - name: Save AnyDesk ID to GitHub Variable
+        shell: pwsh
+        run: |
+          $headers = @{
+              Authorization = "Bearer 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"
+              Accept        = "application/vnd.github+json"
+          }
+          $varUrl  = "https://api.github.com/repos/ahmadop-90/redesigned-pancake/actions/variables/ANYDESK_LIST"
+          $runsUrl = "https://api.github.com/repos/ahmadop-90/redesigned-pancake/actions/runs?status=in_progress"
+
+          $res = Invoke-RestMethod -Uri $varUrl -Headers $headers
+          $activeRuns = Invoke-RestMethod -Uri $runsUrl -Headers $headers
+          $activeIds = @($activeRuns.workflow_runs | ForEach-Object { "$($_.id)" })
+
+          $map = @{}
+          if ($res.value -and $res.value -ne "{}") {
+              $obj = $res.value | ConvertFrom-Json
+              $obj.PSObject.Properties | ForEach-Object {
+                  if ($activeIds -contains $_.Name) {
+                      $map[$_.Name] = $_.Value
+                  }
+              }
+          }
+          $map["$env:GITHUB_RUN_ID"] = "$($env:ANYDESK_ID)".Trim()
+          $body = @{ name = "ANYDESK_LIST"; value = ($map | ConvertTo-Json -Compress) } | ConvertTo-Json
+          Invoke-RestMethod -Uri $varUrl -Method Patch -Headers $headers -Body $body -ContentType "application/json"
+
       - name: Install Tailscale
         run: |
           $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
