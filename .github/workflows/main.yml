@@ -137,10 +137,20 @@ jobs:
           $anydeskId = cmd.exe /c "C:\AnyDesk\AnyDesk.exe --get-id"
           echo "ANYDESK_ID=$anydeskId" >> $env:GITHUB_ENV
 
-      - name: Set .mcr default app to Macro Recorder
+      - name: Create Direct Play Shortcut on Desktop
+        shell: pwsh
         run: |
-          cmd /c assoc .mcr=MacroRecorderFile
-          cmd /c ftype MacroRecorderFile="C:\Program Files (x86)\MacroRecorder\MacroRecorder.exe" "%1"
+          $desktopPath = "C:\Users\Public\Desktop"
+          $exePath = "C:\Program Files (x86)\MacroRecorder\MacroRecorder.exe"
+          if (-not (Test-Path $exePath)) { $exePath = "C:\Program Files\MacroRecorder\MacroRecorder.exe" }
+          $mcrFile = "$desktopPath\gg in.mcr"
+
+          $WshShell = New-Object -comObject WScript.Shell
+          $Shortcut = $WshShell.CreateShortcut("$desktopPath\Play_gg_in.lnk")
+          $Shortcut.TargetPath = $exePath
+          $Shortcut.Arguments = "`"$mcrFile`" /play"
+          $Shortcut.WorkingDirectory = Split-Path $exePath
+          $Shortcut.Save()
 
       - name: Install Anti-Detect Browsers from Google Drive
         shell: pwsh
