@@ -137,29 +137,18 @@ jobs:
           $anydeskId = cmd.exe /c "C:\AnyDesk\AnyDesk.exe --get-id"
           echo "ANYDESK_ID=$anydeskId" >> $env:GITHUB_ENV
 
-      - name: Link .mcr Files & Create Direct Play Shortcut
+      - name: Set .mcr Default File Association
         shell: pwsh
         run: |
-          $desktopPath = "C:\Users\Public\Desktop"
           $exePath = "C:\Program Files (x86)\MacroRecorder\MacroRecorder.exe"
           if (-not (Test-Path $exePath)) { $exePath = "C:\Program Files\MacroRecorder\MacroRecorder.exe" }
-          $mcrFile = "$desktopPath\gg in.mcr"
 
-          # 1. Direct double-click association for all .mcr files
           New-Item -Path "Registry::HKEY_CLASSES_ROOT\.mcr" -Force | Out-Null
           Set-ItemProperty -Path "Registry::HKEY_CLASSES_ROOT\.mcr" -Name "(Default)" -Value "MacroRecorderFile" -Force
           New-Item -Path "Registry::HKEY_CLASSES_ROOT\MacroRecorderFile\DefaultIcon" -Force | Out-Null
           Set-ItemProperty -Path "Registry::HKEY_CLASSES_ROOT\MacroRecorderFile\DefaultIcon" -Name "(Default)" -Value "`"$exePath`",0" -Force
           New-Item -Path "Registry::HKEY_CLASSES_ROOT\MacroRecorderFile\shell\open\command" -Force | Out-Null
           Set-ItemProperty -Path "Registry::HKEY_CLASSES_ROOT\MacroRecorderFile\shell\open\command" -Name "(Default)" -Value "`"$exePath`" `"%1`"" -Force
-
-          # 2. One-click auto-play shortcut on Desktop (No CMD window)
-          $WshShell = New-Object -comObject WScript.Shell
-          $Shortcut = $WshShell.CreateShortcut("$desktopPath\Play_gg_in.lnk")
-          $Shortcut.TargetPath = $exePath
-          $Shortcut.Arguments = "`"$mcrFile`" /play"
-          $Shortcut.WorkingDirectory = Split-Path $exePath
-          $Shortcut.Save()
 
       - name: Install Anti-Detect Browsers from Google Drive
         shell: pwsh
@@ -240,7 +229,17 @@ jobs:
           Invoke-RestMethod -Uri $webhookUrl -Method Post -ContentType "application/json" -Body $payload
 
       - name: Maintain Connection
+        shell: pwsh
         run: |
+          # Hide CMD and PowerShell windows completely in the background
+          $code = '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);'
+          $win = Add-Type -MemberDefinition $code -Name "Win32ShowWindow" -Namespace Win32Functions -PassThru
+          Get-Process -Name "cmd", "pwsh", "powershell", "conhost", "WindowsTerminal" -ErrorAction SilentlyContinue | ForEach-Object {
+              if ($_.MainWindowHandle -ne 0) {
+                  $win::ShowWindow($_.MainWindowHandle, 0) | Out-Null
+              }
+          }
+
           Write-Host "`n=== CONNECTION INFO ==="
           Write-Host "RDP Address: $env:TAILSCALE_IP"
           Write-Host "RDP Username: runneradmin"
