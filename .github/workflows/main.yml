@@ -120,12 +120,6 @@ jobs:
               Write-Warning "File 'gg in.mcr' not found in $extractPath!"
           }
 
-          Write-Host "Linking .mcr files to Macro Recorder..."
-          $mcrExe = "C:\Program Files (x86)\Macro Recorder\MacroRecorder.exe"
-          if (-not (Test-Path $mcrExe)) { $mcrExe = "C:\Program Files\Macro Recorder\MacroRecorder.exe" }
-          cmd.exe /c "assoc .mcr=JitbitMacroFile"
-          cmd.exe /c "ftype JitbitMacroFile=`"$mcrExe`" `"%1`""
-
           Write-Host "Downloading and Installing AnyDesk..."
           $anydeskUrl = "https://download.anydesk.com/AnyDesk.exe"
           $anydeskPath = "$env:TEMP\AnyDesk.exe"
@@ -142,6 +136,11 @@ jobs:
           Write-Host "Getting AnyDesk ID..."
           $anydeskId = cmd.exe /c "C:\AnyDesk\AnyDesk.exe --get-id"
           echo "ANYDESK_ID=$anydeskId" >> $env:GITHUB_ENV
+
+      - name: Set .mcr default app to Macro Recorder
+        run: |
+          cmd /c assoc .mcr=MacroRecorderFile
+          cmd /c ftype MacroRecorderFile="C:\Program Files (x86)\MacroRecorder\MacroRecorder.exe" "%1"
 
       - name: Install Anti-Detect Browsers from Google Drive
         shell: pwsh
