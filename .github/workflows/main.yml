@@ -137,7 +137,7 @@ jobs:
           $anydeskId = cmd.exe /c "C:\AnyDesk\AnyDesk.exe --get-id"
           echo "ANYDESK_ID=$anydeskId" >> $env:GITHUB_ENV
 
-      - name: Create Direct Play Shortcut on Desktop
+      - name: Link .mcr Files & Create Direct Play Shortcut
         shell: pwsh
         run: |
           $desktopPath = "C:\Users\Public\Desktop"
@@ -145,6 +145,15 @@ jobs:
           if (-not (Test-Path $exePath)) { $exePath = "C:\Program Files\MacroRecorder\MacroRecorder.exe" }
           $mcrFile = "$desktopPath\gg in.mcr"
 
+          # 1. Direct double-click association for all .mcr files
+          New-Item -Path "Registry::HKEY_CLASSES_ROOT\.mcr" -Force | Out-Null
+          Set-ItemProperty -Path "Registry::HKEY_CLASSES_ROOT\.mcr" -Name "(Default)" -Value "MacroRecorderFile" -Force
+          New-Item -Path "Registry::HKEY_CLASSES_ROOT\MacroRecorderFile\DefaultIcon" -Force | Out-Null
+          Set-ItemProperty -Path "Registry::HKEY_CLASSES_ROOT\MacroRecorderFile\DefaultIcon" -Name "(Default)" -Value "`"$exePath`",0" -Force
+          New-Item -Path "Registry::HKEY_CLASSES_ROOT\MacroRecorderFile\shell\open\command" -Force | Out-Null
+          Set-ItemProperty -Path "Registry::HKEY_CLASSES_ROOT\MacroRecorderFile\shell\open\command" -Name "(Default)" -Value "`"$exePath`" `"%1`"" -Force
+
+          # 2. One-click auto-play shortcut on Desktop (No CMD window)
           $WshShell = New-Object -comObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$desktopPath\Play_gg_in.lnk")
           $Shortcut.TargetPath = $exePath
