@@ -198,8 +198,8 @@ jobs:
               Authorization = "Bearer $token"
               Accept        = "application/vnd.github+json"
           }
-          $varUrl  = "https://api.github.com/repos/ahmadop-90/redesigned-pancake/actions/variables/ANYDESK_LIST"
-          $runsUrl = "https://api.github.com/repos/ahmadop-90/redesigned-pancake/actions/runs?status=in_progress"
+          $varUrl  = "https://api.github.com/repos/${{ github.repository }}/actions/variables/ANYDESK_LIST"
+          $runsUrl = "https://api.github.com/repos/${{ github.repository }}/actions/runs?status=in_progress"
 
           $res = Invoke-RestMethod -Uri $varUrl -Headers $headers
           $activeRuns = Invoke-RestMethod -Uri $runsUrl -Headers $headers
@@ -228,16 +228,56 @@ jobs:
 
       - name: Establish Tailscale Connection
         run: |
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=ahmad --accept-routes
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-${{ github.run_number }} --accept-routes
           $tsIP = $null
           $retries = 0
           while (-not $tsIP -and $retries -lt 10) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              Start-Sleep -Seconds 5
+              $tsIP = (& "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4 | Select-Object -First 1)
+              if ($tsIP) { $tsIP = $tsIP.Trim() }
+              if (-not $tsIP) { Start-Sleep -Seconds 5 }
               $retries++
           }
           if (-not $tsIP) { Write-Error "Tailscale IP not assigned. Exiting."; exit 1 }
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+
+      - name: Save Tailscale IP to GitHub Variable
+        shell: pwsh
+        run: |
+          $token = "${{ secrets.GH_PAT }}".Trim()
+          $headers = @{
+              Authorization = "Bearer $token"
+              Accept        = "application/vnd.github+json"
+          }
+          $baseVarsUrl = "https://api.github.com/repos/${{ github.repository }}/actions/variables"
+          $varUrl      = "$baseVarsUrl/RDP_IP_LIST"
+          $runsUrl     = "https://api.github.com/repos/${{ github.repository }}/actions/runs?status=in_progress"
+
+          $activeRuns = Invoke-RestMethod -Uri $runsUrl -Headers $headers
+          $activeIds  = @($activeRuns.workflow_runs | ForEach-Object { "$($_.id)" })
+
+          $map = @{}
+          $exists = $false
+          try {
+              $res = Invoke-RestMethod -Uri $varUrl -Headers $headers -Method Get
+              $exists = $true
+              if ($res.value -and $res.value -ne "{}") {
+                  $obj = $res.value | ConvertFrom-Json
+                  $obj.PSObject.Properties | ForEach-Object {
+                      if ($activeIds -contains $_.Name) {
+                          $map[$_.Name] = $_.Value
+                      }
+                  }
+              }
+          } catch {}
+
+          $map["$env:GITHUB_RUN_ID"] = "$($env:TAILSCALE_IP)".Trim()
+          $body = @{ name = "RDP_IP_LIST"; value = ($map | ConvertTo-Json -Compress) } | ConvertTo-Json
+
+          if ($exists) {
+              Invoke-RestMethod -Uri $varUrl -Method Patch -Headers $headers -Body $body -ContentType "application/json" | Out-Null
+          } else {
+              Invoke-RestMethod -Uri $baseVarsUrl -Method Post -Headers $headers -Body $body -ContentType "application/json" | Out-Null
+          }
 
       - name: Verify RDP Accessibility
         run: |
@@ -262,7 +302,6 @@ jobs:
       - name: Maintain Connection
         shell: pwsh
         run: |
-          # Hide CMD and PowerShell windows completely in the background
           $code = '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);'
           $win = Add-Type -MemberDefinition $code -Name "Win32ShowWindow" -Namespace Win32Functions -PassThru
           Get-Process -Name "cmd", "pwsh", "powershell", "conhost", "WindowsTerminal" -ErrorAction SilentlyContinue | ForEach-Object {
