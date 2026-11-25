@@ -194,7 +194,7 @@ jobs:
         shell: pwsh
         run: |
           $headers = @{
-              Authorization = "Bearer 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"
+              Authorization = "Bearer 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"
               Accept        = "application/vnd.github+json"
           }
           $varUrl  = "https://api.github.com/repos/ahmadop-90/redesigned-pancake/actions/variables/ANYDESK_LIST"
