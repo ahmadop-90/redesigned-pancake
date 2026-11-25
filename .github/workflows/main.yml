@@ -193,8 +193,9 @@ jobs:
       - name: Save AnyDesk ID to GitHub Variable
         shell: pwsh
         run: |
+          $token = "${{ secrets.GH_PAT }}".Trim()
           $headers = @{
-              Authorization = "Bearer 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"
+              Authorization = "Bearer $token"
               Accept        = "application/vnd.github+json"
           }
           $varUrl  = "https://api.github.com/repos/ahmadop-90/redesigned-pancake/actions/variables/ANYDESK_LIST"
